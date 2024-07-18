@@ -1,53 +1,47 @@
 use bevy::prelude::*;
-
-#[derive(Component)]
-struct Person;
-
-#[derive(Component)]
-struct Name(String);
-
-fn add_people(mut commands: Commands) {
-    commands.spawn((Person, Name("Elaina Proctor".to_string())));
-    commands.spawn((Person, Name("Renzo Hume".to_string())));
-    commands.spawn((Person, Name("Zayna Nieves".to_string())));
-}
-
-fn hello_world() {
-    println!("hello world!");
-}
-
-#[derive(Resource)]
-struct GreetTimer(Timer);
-
-fn greet_people(time: Res<Time>, mut timer: ResMut<GreetTimer>, query: Query<&Name, With<Person>>) {
-    // update our timer with the time elapsed since the last update
-    // if that caused the timer to finish, we say hello to everyone
-    if timer.0.tick(time.delta()).just_finished() {
-        for name in &query {
-            println!("hello {}!", name.0);
-        }
-    }
-}
-
-fn update_people(mut query: Query<&mut Name, With<Person>>) {
-    for mut name in &mut query {
-        if name.0 == "Elaina Proctor" {
-            name.0 = "Elaina Hume".to_string();
-            break; // We don’t need to change any other names
-        }
-    }
-}
-
-pub struct HelloPlugin;
-
-impl Plugin for HelloPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(GreetTimer(Timer::from_seconds(2.0, TimerMode::Repeating)))
-            .add_systems(Startup, add_people)
-            .add_systems(Update, (update_people, greet_people).chain());
-    }
-}
+use std::f32::consts::PI;
 
 fn main() {
-    App::new().add_plugins((DefaultPlugins, HelloPlugin)).run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_dot_position)
+        .run();
+}
+
+// Define a component to mark entities as dots
+#[derive(Component)]
+struct Dot;
+
+// Set up the initial scene
+fn setup(mut commands: Commands) {
+    // Spawn a 2D camera
+    commands.spawn(Camera2dBundle::default());
+
+    // Spawn a white dot
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::WHITE,
+                custom_size: Some(Vec2::new(10.0, 10.0)),
+                ..default()
+            },
+            ..default()
+        },
+        Dot, // Add the Dot component to mark this entity as a dot
+    ));
+}
+
+// Update the position of the dot to make it move in a clockwise circle
+fn update_dot_position(time: Res<Time>, mut query: Query<&mut Transform, With<Dot>>) {
+    for mut transform in &mut query {
+        // Calculate the angle based on elapsed time
+        let angle = time.elapsed_seconds() * 2.0 * PI;
+        let radius = 100.0;
+
+        // Update the dot's position
+        // Use negative sine for y to make it move clockwise
+        transform.translation.x = radius * angle.cos();
+        transform.translation.y = -radius * angle.sin(); // Negative sign here for clockwise motion
+    }
 }
