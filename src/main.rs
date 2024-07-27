@@ -1,3 +1,4 @@
+use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 
 const RED_SRGB: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -8,9 +9,12 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_objects, check_collision))
+        .add_systems(Update, (move_objects, check_collision, camera_control))
         .run();
 }
+
+#[derive(Component)]
+struct MainCamera;
 
 #[derive(Component)]
 struct MovingObject {
@@ -31,10 +35,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // 3D camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 5.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 5.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        MainCamera,
+    ));
 
     // Light
     commands.spawn(PointLightBundle {
@@ -79,6 +86,55 @@ fn setup(
         },
         Collider { radius: 0.5 },
     ));
+}
+
+fn camera_control(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+
+    mut query: Query<&mut Transform, With<MainCamera>>,
+    time: Res<Time>,
+) {
+    let mut camera_transform = query.single_mut();
+    let mut movement = Vec3::ZERO;
+    let mut rotation = Vec2::ZERO;
+    let move_speed = 5.0;
+    let rotate_speed = 1.0;
+
+    if keyboard_input.pressed(KeyCode::KeyW) {
+        movement += camera_transform.forward() * move_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::KeyS) {
+        movement -= camera_transform.forward() * move_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::KeyA) {
+        movement -= camera_transform.right() * move_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::KeyD) {
+        movement += camera_transform.right() * move_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::Space) {
+        movement += Vec3::Y * move_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::ShiftLeft) {
+        movement -= Vec3::Y * move_speed * time.delta_seconds();
+    }
+
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        rotation.x -= rotate_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
+        rotation.x += rotate_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::ArrowUp) {
+        rotation.y += rotate_speed * time.delta_seconds();
+    }
+    if keyboard_input.pressed(KeyCode::ArrowDown) {
+        rotation.y -= rotate_speed * time.delta_seconds();
+    }
+
+    camera_transform.translation += movement;
+    camera_transform.rotate_y(-rotation.x);
+    camera_transform.rotate_local_x(-rotation.y);
 }
 
 fn move_objects(mut query: Query<(&mut Transform, &mut MovingObject)>, time: Res<Time>) {
